@@ -539,6 +539,50 @@ class Adafruit_Thermal(Serial):
 	def underlineOff(self):
 		self.writeBytes(ASCII_ESC, 45, 0)
 
+	def printImageColumn(self, image, LaaT=False):
+
+		transformedImage = image.transpose(Image.ROTATE_270).transpose(Image.FLIP_LEFT_RIGHT)
+		transformedImage = transformedImage.convert("L")
+		transformedImage = ImageOps.invert(transformedImage)
+		transformedImage = transformedImage.convert("1")
+
+		line_height = 24
+
+		width  = transformedImage.size[0]
+		height = transformedImage.size[1]
+
+		self.flush()
+
+		self.writeBytes(ASCII_ESC)
+		self.writeBytes(76)
+
+		self.writeBytes(ASCII_ESC,87,0%256,0/256,0%256,0/256,width%256,width/256,height%256,height/256)
+
+		top = 0
+		left = 0
+
+		while left < width:
+			box = (left, top, left + line_height, top + height)
+			im_slice = transformedImage.transform((line_height, height), Image.EXTENT, box)
+			im_bytes = im_slice.tobytes()
+			self.printBitmapColumn(line_height, height, im_bytes, LaaT)
+			left += line_height
+
+	def printBitmapColumn(self, w, h, bitmap, LaaT=False):
+
+		# ESC *, column format bit image
+		density_byte = 33
+		self.writeBytes(ASCII_ESC, 51, 0)
+		self.writeBytes(ASCII_ESC, 42, density_byte, 384 % 256, 384 / 256)
+		
+		for i in range(len(bitmap)):
+			self.writeBytes(six.byte2int(bitmap[i]))
+
+		self.writeBytes(10)
+		self.writeBytes(ASCII_ESC,50)
+		self.prevByte = '\n'
+
+
 	def printBitmap(self, w, h, bitmap, LaaT=False):
 		rowBytes = (w + 7) / 8  # Round up to next byte boundary
 
