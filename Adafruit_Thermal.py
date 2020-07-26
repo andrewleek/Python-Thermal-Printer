@@ -37,6 +37,8 @@ from __future__ import print_function
 from serial import Serial
 import time
 import sys
+import six
+from PIL import Image, ImageOps
 
 try:
 	import RPi.GPIO as GPIO
@@ -162,7 +164,7 @@ class Adafruit_Thermal(Serial):
 				GPIO.setup(self.dtrPin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 				self.writeBytes(29, 97, (1 << 5))
 				self.dtrEnabled = True
-				print('Printer DTR Handshake Enabled')
+				#print('Printer DTR Handshake Enabled')
 
 			self.dotPrintTime = 0.03
 			self.dotFeedTime  = 0.0021
@@ -540,6 +542,28 @@ class Adafruit_Thermal(Serial):
 	def printBitmap(self, w, h, bitmap, LaaT=False):
 		rowBytes = (w + 7) / 8  # Round up to next byte boundary
 
+		if LaaT: maxChunkHeight = 1
+		else:    maxChunkHeight = 255
+
+		# this is a manually slowed version that prints line by line without white line problem
+		"""
+		i = 0
+		for rowStart in range(0, h, maxChunkHeight):
+			chunkHeight = h - rowStart
+			if chunkHeight > maxChunkHeight:
+				chunkHeight = maxChunkHeight
+
+			# Timeout wait happens here
+			self.writeBytes(ASCII_GS, 118, 48, 0, rowBytes % 256, rowBytes / 256, chunkHeight % 256, chunkHeight / 256);
+
+			for y in range(chunkHeight):
+				for x in range(rowBytes):
+					self.writeBytes(bitmap[i])
+					i += 1
+			time.sleep(0.2)
+		self.prevByte = '\n'
+		"""
+
 		self.writeBytes(ASCII_GS, 118, 48, 0, rowBytes % 256, rowBytes / 256, h % 256, h / 256);
 
 		i = 0
@@ -559,7 +583,6 @@ class Adafruit_Thermal(Serial):
 	# the Imaging Library to perform such operations before
 	# passing the result to this function.
 	def printImage(self, image, LaaT=False):
-		from PIL import Image
 
 		if image.mode != '1':
 			image = image.convert('1')
@@ -747,4 +770,3 @@ class Adafruit_Thermal(Serial):
 		for arg in args:
 			self.write(str(arg))
 		self.write('\n')
-
